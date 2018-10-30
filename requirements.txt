@@ -1,0 +1,4 @@
+PyYAML
+colorama
+tqdm
+mechanicalsoup

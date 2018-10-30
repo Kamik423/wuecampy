@@ -1,0 +1,5 @@
+Max Bars: 2            # -1         # Maximum amount of progress bars
+Log Deprecated: True   # False      # Log deprecated files
+# OLD: (OLD)                        # The prefix to be applied to old files
+# UEC: (Unicode Encoding Conflict)  # The suffix files with a unicode encoding conflict have (dropbox issue)
+# Log All: False                    # Log every single file or message

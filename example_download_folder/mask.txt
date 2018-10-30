@@ -1,0 +1,16 @@
+// mask.txt
+// created by Hans
+// 
+// 
+// Rules:
+// 
+// - excluded file name
+// + included file name
+// 
+// a * will match multiple characters at that point
+// a # will match any path (don't surround by / !)
+
++ WS18*#                    // download all winter semester 2018 files
+- WS18*Unwanted*            // exclude courses with "Unwanted" in their name
+
+- #*.mov                    // exclude .mov files
