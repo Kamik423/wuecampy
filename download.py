@@ -211,6 +211,7 @@ class Config:
         root_path (Path): The root path to be synced to
         log_deprecated (bool): Log deprectated files
         log_all (bool): Log every single file and message
+        delete_old (bool): Delete old files
     """
 
     config_file: str
@@ -222,6 +223,7 @@ class Config:
     root_path: Path
     log_deprecated: bool = False
     log_all: bool = False
+    delete_old: bool = False
 
     @classmethod
     def initiate_from_file(cls, config_file: str):
@@ -240,6 +242,7 @@ class Config:
         cls.current_pbar_depth = cls.max_pbar_depth
         cls.log_deprecated = config.get('Log Deprecated', cls.log_deprecated)
         cls.log_all = config.get('Log All', cls.log_all)
+        cls.delete_old = config.get('Delete old', cls.delete_old)
 
     @classmethod
     def absolute_path(cls, path: Path) -> Path:
@@ -401,11 +404,24 @@ def make_old_file_if_not_already(file: Path):
     Args:
         file (Path): The path to be deprecated.
     """
-    if is_deprecated(file) or Config.absolute_path(deprecate(file)).exists():
-        pretty_print(Status.deprecated, file, keep=Config.log_deprecated)
+    if Config.delete_old:
+        file_to_delete = file
+        if is_deprecated(file) or \
+                Config.absolute_path(deprecate(file)).exists():
+            file_to_delete = deprecate(file)
+        file_to_delete = Config.absolute_path(file_to_delete)
+        if file.is_dir() or file_to_delete.is_dir():
+            shutil.rmtree(file_to_delete)
+        else:
+            os.remove(file_to_delete)
+        log(Status.removing, file)
     else:
-        log(Status.deprecated, file)
-        make_old_file(file)
+        if is_deprecated(file) or \
+                Config.absolute_path(deprecate(file)).exists():
+            pretty_print(Status.deprecated, file, keep=Config.log_deprecated)
+        else:
+            log(Status.deprecated, file)
+            make_old_file(file)
 
 def touchdir_absolute(directory: Path):
     """Make sure an absolute directory exists.
