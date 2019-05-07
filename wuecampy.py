@@ -18,6 +18,7 @@ from tqdm import tqdm
 
 TMP_DOWNLOAD_DIR = Path.home()
 
+
 def normalized(string: str) -> str:
     """A normalized version of a string.
 
@@ -28,9 +29,9 @@ def normalized(string: str) -> str:
         str: The normalized string
     """
     return_string = string
-    return_string = return_string.replace('/', 'or')
-    return_string = return_string.replace(':', ' ')
-    return_string = unicodedata.normalize('NFD', return_string)
+    return_string = return_string.replace("/", "or")
+    return_string = return_string.replace(":", " ")
+    return_string = unicodedata.normalize("NFD", return_string)
     return return_string
 
 
@@ -44,18 +45,20 @@ class url:
         main_page (str): The main page
     """
 
-    login_page = 'https://wuecampus2.uni-wuerzburg.de/moodle/login/index.php'
-    main_page = 'https://wuecampus2.uni-wuerzburg.de/moodle/'
-    grade_page = 'https://wuecampus2.uni-wuerzburg.de/moodle/grade/'\
-                 'report/user/index.php?id={}'
-    courses_page = 'https://wuecampus2.uni-wuerzburg.de/moodle/my/index.php'
+    login_page = "https://wuecampus2.uni-wuerzburg.de/moodle/login/index.php"
+    main_page = "https://wuecampus2.uni-wuerzburg.de/moodle/"
+    grade_page = (
+        "https://wuecampus2.uni-wuerzburg.de/moodle/grade/"
+        "report/user/index.php?id={}"
+    )
+    courses_page = "https://wuecampus2.uni-wuerzburg.de/moodle/my/index.php"
 
 
 class AbstractedFileStructureElement(ABC):
     """An abstracted file structure element (file or directory)
     """
 
-    parent: Optional['AbstractedFileStructureElement']
+    parent: Optional["AbstractedFileStructureElement"]
 
     @abstractmethod
     def has_children(self) -> bool:
@@ -64,7 +67,7 @@ class AbstractedFileStructureElement(ABC):
         ...
 
     @abstractmethod
-    def get_children(self) -> List['AbstractedFileStructureElement']:
+    def get_children(self) -> List["AbstractedFileStructureElement"]:
         """Get a list of the cildren of the AFSE.
         """
         ...
@@ -88,6 +91,7 @@ class AbstractedFileStructureElement(ABC):
             return Path(self.name())
         return self.parent.path() / self.name()
 
+
 class AbstractedDirectory(AbstractedFileStructureElement):
     """A object that can be mapped to a directory on the local file system.
     """
@@ -97,6 +101,7 @@ class AbstractedDirectory(AbstractedFileStructureElement):
 
     def is_file(self) -> bool:
         return False
+
 
 class AbstractedFile(AbstractedDirectory, ABC):
     """An object that can be mapped to a file on the local file system.
@@ -128,9 +133,9 @@ class activity(AbstractedFileStructureElement):
     """Activity management class.
     """
 
-    campus: 'wuecampus'
-    course_: 'course'
-    section_: 'section'
+    campus: "wuecampus"
+    course_: "course"
+    section_: "section"
     title: str
 
     def name(self) -> str:
@@ -152,13 +157,15 @@ class activity_file(activity, AbstractedFile):
         title (str): The title of the file
     """
 
-    def __init__(self,
-                 campus: 'wuecampus',
-                 course_: 'course',
-                 section_: 'section',
-                 title: str,
-                 link_object,
-                 kind: str):
+    def __init__(
+        self,
+        campus: "wuecampus",
+        course_: "course",
+        section_: "section",
+        title: str,
+        link_object,
+        kind: str,
+    ):
         """Initialize the object.
 
         Args:
@@ -175,14 +182,15 @@ class activity_file(activity, AbstractedFile):
         self.title = normalized(title)
         self.link_object = link_object
         self.kind = kind
-        self.link = re.search(
-            r"http[^']*resource[^']*", link_object.get('onclick')).group(0) \
-            if link_object.get('onclick') \
-            else link_object.get('href')
-        self.extension_string = ''
+        self.link = (
+            re.search(r"http[^']*resource[^']*", link_object.get("onclick")).group(0)
+            if link_object.get("onclick")
+            else link_object.get("href")
+        )
+        self.extension_string = ""
         self.parent = section_
 
-    def get_file(self) -> 'requests.Session.get':
+    def get_file(self) -> "requests.Session.get":
         """Get and stream the file download.
 
         Returns:
@@ -196,10 +204,13 @@ class activity_file(activity, AbstractedFile):
         Args:
             to (str): The download path.
         """
-        download_target = TMP_DOWNLOAD_DIR / to.split('/')[-1]
-        with open(download_target, 'wb') as handle:
-            for data in tqdm(self.get_file().iter_content(chunk_size=1024),
-                             unit='kB', unit_scale=True):
+        download_target = TMP_DOWNLOAD_DIR / to.split("/")[-1]
+        with open(download_target, "wb") as handle:
+            for data in tqdm(
+                self.get_file().iter_content(chunk_size=1024),
+                unit="kB",
+                unit_scale=True,
+            ):
                 handle.write(data)
         move(download_target, to)
 
@@ -209,8 +220,7 @@ class activity_file(activity, AbstractedFile):
         Args:
             to (str): The download path.
         """
-        self.save_file_to(path + '/' +
-                          self.title + '.' + self.extension_string)
+        self.save_file_to(path + "/" + self.title + "." + self.extension_string)
 
     def download_to(self, to: str):
         self.save_file_to(to)
@@ -224,35 +234,36 @@ class activity_file(activity, AbstractedFile):
         Returns:
             str: The extension
         """
-        primitive_extension = self.link_object.find_all('img')[0].get('src') \
-                                .split('/')[-1] \
-                                if 'img' in str(self.link_object) \
-                                else self.link_object.get_text().split('.')[-1]
-        if primitive_extension in ['pdf', 'zip']:
+        primitive_extension = (
+            self.link_object.find_all("img")[0].get("src").split("/")[-1]
+            if "img" in str(self.link_object)
+            else self.link_object.get_text().split(".")[-1]
+        )
+        if primitive_extension in ["pdf", "zip"]:
             self.extension_string = primitive_extension
         else:
             if self.campus.verbose:
-                msg = 'complex extension: {}'.format(primitive_extension)
+                msg = "complex extension: {}".format(primitive_extension)
                 if self.campus.use_tqdm:
                     tqdm.write(msg)
                 else:
                     tqdm.write(msg)
-        if self.extension_string == '':
+        if self.extension_string == "":
             i = self.campus.browser.get(self.link, allow_redirects=False)
-            if 'location' in i.headers:
-                self.extension_string = '.'.join(
-                    i.headers['location'].split('/')[-1].split('.')[1:]
-                    ).split('?')[0]
+            if "location" in i.headers:
+                self.extension_string = ".".join(
+                    i.headers["location"].split("/")[-1].split(".")[1:]
+                ).split("?")[0]
             else:
-                self.extension_string = '.'.join(
-                    i.headers['Content-Disposition'].split('"')[-2] \
-                    .split('.')[1:])
-        if self.title.endswith('.' + self.extension_string):
+                self.extension_string = ".".join(
+                    i.headers["Content-Disposition"].split('"')[-2].split(".")[1:]
+                )
+        if self.title.endswith("." + self.extension_string):
             self.title = self.title.rstrip(self.extension_string)[:-1]
         return self.extension_string
 
     def name(self) -> str:
-        return f'{self.title}.{self.extension()}'
+        return f"{self.title}.{self.extension()}"
 
     def __repr__(self):
         return '"File" activity "{}" in {}'.format(self.title, self.section_)
@@ -268,12 +279,9 @@ class section(AbstractedDirectory):
         link (str): The link to the section
     """
 
-    def __init__(self,
-                 campus: 'wuecampus',
-                 course_: 'course',
-                 title: str,
-                 link: str,
-                 id_: str):
+    def __init__(
+        self, campus: "wuecampus", course_: "course", title: str, link: str, id_: str
+    ):
         """Initialize the section object
 
         Args:
@@ -298,27 +306,48 @@ class section(AbstractedDirectory):
         """
         self.campus.browser.open(self.link)
         page = self.campus.browser.get_current_page()
-        current_section = page.find_all('li', id='section-{}'.format(self.id_))[0]
-        activities_ = []
-        for activity_ in current_section.find_all('li', class_='activity'):
-            activity_kind = activity_.get('class')[1]
-            activity_title = 'undefined'
-            if activity_kind == 'resource':
-                i_ = activity_.find_all(class_='instancename')[0].children
-                activity_title = str(next(i_)).strip()
-                activities_.append(activity_file(self.campus, self.course_, self, activity_title, activity_.find_all('a')[0], activity_kind))
-            if activity_kind == 'assign':
-                i_ = activity_.find_all(class_='instancename')[0].children
-                activity_title = str(next(i_)).strip()
-                activities_.append(activity_assignment(self.campus, self.course_, self, activity_title, activity_.find_all('a')[0], activity_kind))
-            else:
-                if self.campus.verbose:
-                    msg = 'unknown activity: {}'.format(activity_kind)
-                    if self.campus.use_tqdm:
-                        tqdm.write(msg)
-                    else:
-                        print(msg)
-        return activities_
+        try:
+            current_section = page.find_all("li", id="section-{}".format(self.id_))[0]
+            activities_ = []
+            for activity_ in current_section.find_all("li", class_="activity"):
+                activity_kind = activity_.get("class")[1]
+                activity_title = "undefined"
+                if activity_kind == "resource":
+                    i_ = activity_.find_all(class_="instancename")[0].children
+                    activity_title = str(next(i_)).strip()
+                    activities_.append(
+                        activity_file(
+                            self.campus,
+                            self.course_,
+                            self,
+                            activity_title,
+                            activity_.find_all("a")[0],
+                            activity_kind,
+                        )
+                    )
+                if activity_kind == "assign":
+                    i_ = activity_.find_all(class_="instancename")[0].children
+                    activity_title = str(next(i_)).strip()
+                    activities_.append(
+                        activity_assignment(
+                            self.campus,
+                            self.course_,
+                            self,
+                            activity_title,
+                            activity_.find_all("a")[0],
+                            activity_kind,
+                        )
+                    )
+                else:
+                    if self.campus.verbose:
+                        msg = "unknown activity: {}".format(activity_kind)
+                        if self.campus.use_tqdm:
+                            tqdm.write(msg)
+                        else:
+                            print(msg)
+            return activities_
+        except IndexError:
+            return []
 
     def all_files(self) -> List[activity_file]:
         """All files in the section
@@ -326,15 +355,15 @@ class section(AbstractedDirectory):
         Returns:
             List[activity_file]: The files
         """
-        return [a for a in self.all_activities() if a.kind == 'resource']
+        return [a for a in self.all_activities() if a.kind == "resource"]
 
-    def all_assignments(self) -> List['activity_assignment']:
+    def all_assignments(self) -> List["activity_assignment"]:
         """All assignments in the section.
 
         Returns:
             List[activity_assignment]: The assignments
         """
-        return [a for a in self.all_activities() if a.kind == 'assign']
+        return [a for a in self.all_activities() if a.kind == "assign"]
 
     def get_children(self):
         return self.all_activities()
@@ -355,11 +384,7 @@ class inline_section(section):
         div: a bs4 object for the div tag the section is in
     """
 
-    def __init__(self,
-                 campus: 'wuecampus',
-                 course_: 'course',
-                 title: str,
-                 div):
+    def __init__(self, campus: "wuecampus", course_: "course", title: str, div):
         """Initialize the inline section.
 
         Args:
@@ -376,20 +401,38 @@ class inline_section(section):
 
     def all_activities(self):
         activities_ = []
-        for activity_ in self.div.find_all('li', class_='activity'):
-            activity_kind = activity_.get('class')[1]
-            activity_title = 'undefined'
-            if activity_kind == 'resource':
-                i_ = activity_.find_all(class_='instancename')[0].children
+        for activity_ in self.div.find_all("li", class_="activity"):
+            activity_kind = activity_.get("class")[1]
+            activity_title = "undefined"
+            if activity_kind == "resource":
+                i_ = activity_.find_all(class_="instancename")[0].children
                 activity_title = str(next(i_)).strip()
-                activities_.append(activity_file(self.campus, self.course_, self, activity_title, activity_.find_all('a')[0], activity_kind))
-            if activity_kind == 'assign':
-                i_ = activity_.find_all(class_='instancename')[0].children
+                activities_.append(
+                    activity_file(
+                        self.campus,
+                        self.course_,
+                        self,
+                        activity_title,
+                        activity_.find_all("a")[0],
+                        activity_kind,
+                    )
+                )
+            if activity_kind == "assign":
+                i_ = activity_.find_all(class_="instancename")[0].children
                 activity_title = str(next(i_)).strip()
-                activities_.append(activity_assignment(self.campus, self.course_, self, activity_title, activity_.find_all('a')[0], activity_kind))
+                activities_.append(
+                    activity_assignment(
+                        self.campus,
+                        self.course_,
+                        self,
+                        activity_title,
+                        activity_.find_all("a")[0],
+                        activity_kind,
+                    )
+                )
             else:
                 if self.campus.verbose:
-                    msg = 'unknown activity: {}'.format(activity_kind)
+                    msg = "unknown activity: {}".format(activity_kind)
                     if self.campus.use_tqdm:
                         tqdm.write(msg)
                     else:
@@ -408,13 +451,15 @@ class activity_assignment(activity, section):
         link_object: A bs4 a object
     """
 
-    def __init__(self,
-                 campus: 'wuecampus',
-                 course_: 'course',
-                 section_: 'section',
-                 title: str,
-                 link_object,
-                 kind: str):
+    def __init__(
+        self,
+        campus: "wuecampus",
+        course_: "course",
+        section_: "section",
+        title: str,
+        link_object,
+        kind: str,
+    ):
         """Initialize the assignment
 
         Args:
@@ -431,26 +476,29 @@ class activity_assignment(activity, section):
         self.title = normalized(title)
         self.link_object = link_object
         self.kind = kind
-        self.link = link_object.get('href')
-        self.extension_string = ''
+        self.link = link_object.get("href")
+        self.extension_string = ""
         self.parent = section_
 
     def all_files(self):
         self.campus.browser.open(self.link)
         page = self.campus.browser.get_current_page()
         files = []
-        for td in page.find_all('li', yuiconfig='{"type":"html"}'):
-            td_title = td.find_all('a')[0].get_text()
-            td_link = td.find_all('a')[0]
-            files.append(activity_file(self.campus, self.course_, self, td_title, td_link, 'resource'))
+        for td in page.find_all("li", yuiconfig='{"type":"html"}'):
+            td_title = td.find_all("a")[0].get_text()
+            td_link = td.find_all("a")[0]
+            files.append(
+                activity_file(
+                    self.campus, self.course_, self, td_title, td_link, "resource"
+                )
+            )
         return files
 
     def get_children(self):
         return self.all_files()
 
     def __repr__(self):
-        return '"Assignment" activity "{}" in {}'.format(
-            self.title, self.section_)
+        return '"Assignment" activity "{}" in {}'.format(self.title, self.section_)
 
 
 class course(AbstractedDirectory):
@@ -462,7 +510,7 @@ class course(AbstractedDirectory):
         link (TYPE): The link to the course
     """
 
-    def __init__(self, campus: 'wuecampus', title: str, link: str, id: str):
+    def __init__(self, campus: "wuecampus", title: str, link: str, id: str):
         """Initialzie the course object
 
         Args:
@@ -486,21 +534,24 @@ class course(AbstractedDirectory):
         self.campus.browser.open(self.link)
         page = self.campus.browser.get_current_page()
         sections_ = []
-        for section_ in page.find_all('li', class_='section-summary'):
-            section_title = section_.find_all('a')[0].get_text()
-            section_link = section_.find_all('a')[0].get('href')
-            section_id = re.search(
-                'section=\d+', section_link).group(0).split('=')[-1]
-            sections_.append(section(
-                self.campus,
-                self,
-                section_title,
-                section_link,
-                section_id))
-        for isection in page.find_all('li', class_='section'):
+        for section_ in page.find_all("li", class_="section-summary"):
+            try:
+                section_title = section_.find_all("a")[0].get_text()
+                section_link = section_.find_all("a")[0].get("href")
+                section_id = (
+                    re.search("section=\d+", section_link).group(0).split("=")[-1]
+                )
+                sections_.append(
+                    section(self.campus, self, section_title, section_link, section_id)
+                )
+            except IndexError:
+                pass
+        for isection in page.find_all("li", class_="section"):
             section_title = next(isection.children).get_text()
-            if section_title != '':
-                sections_.append(inline_section(self.campus, self, section_title, isection))
+            if section_title != "":
+                sections_.append(
+                    inline_section(self.campus, self, section_title, isection)
+                )
         return sections_
 
     def section_with_name(self, name: str) -> section:
@@ -535,8 +586,8 @@ class wuecampus(AbstractedDirectory):
         verbose (bool): Verbose logging
     """
 
-    username = ''
-    password = ''
+    username = ""
+    password = ""
     browser = mechanicalsoup.StatefulBrowser()
 
     def __init__(self, username: str, password: str, verbose=False, use_tqdm=False):
@@ -563,14 +614,12 @@ class wuecampus(AbstractedDirectory):
         self.browser.open(url.courses_page)
         page = self.browser.get_current_page()
         courses_ = []
-        for course_display_block in page.find_all(class_='course-info-container'): # col-lg-6
-            link = course_display_block.find_all('a')[0]
+        for link in page.find_all(class_="jmu-accordion"):  # col-lg-6
             course_title = link.get_text()
-            course_link = link.get('href')
-            course_id = re.search('id=\d+', course_link).group(0)[3:]
+            course_link = link.get("href")
+            course_id = re.search("id=\d+", course_link).group(0)[3:]
             courses_.append(course(self, course_title, course_link, course_id))
         return courses_
-
 
     def course_with_name(self, name: str) -> course:
         """Get a course with a given name
@@ -591,12 +640,12 @@ class wuecampus(AbstractedDirectory):
         """
         self.browser.open(url.login_page)
         form = self.browser.select_form()
-        form['username'] = self.username
-        form['password'] = self.password
+        form["username"] = self.username
+        form["password"] = self.password
         self.browser.submit_selected()
 
     def name(self) -> str:
-        return ''
+        return ""
 
     def __repr__(self):
         return 'wuecampus instance for user "{}"'.format(self.username)
