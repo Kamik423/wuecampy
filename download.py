@@ -234,7 +234,7 @@ class Config:
             config_file (str): The path of the config.yaml
         """
         with open(config_file) as f:
-            config = yaml.load(f)
+            config = yaml.load(f, Loader=yaml.FullLoader)
 
         cls.config_file = config_file
         cls.old_prefix = config.get("OLD", cls.old_prefix)
