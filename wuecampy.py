@@ -9,8 +9,8 @@ Attributes:
 import re
 import unicodedata
 from abc import ABC, abstractmethod
-from shutil import move
 from pathlib import Path
+from shutil import move
 from typing import List, Optional
 
 import mechanicalsoup
@@ -55,46 +55,39 @@ class url:
 
 
 class AbstractedFileStructureElement(ABC):
-    """An abstracted file structure element (file or directory)
-    """
+    """An abstracted file structure element (file or directory)"""
 
     parent: Optional["AbstractedFileStructureElement"]
 
     @abstractmethod
     def has_children(self) -> bool:
-        """Does this AFSE have children (it is a directory)
-        """
+        """Does this AFSE have children (it is a directory)"""
         ...
 
     @abstractmethod
     def get_children(self) -> List["AbstractedFileStructureElement"]:
-        """Get a list of the cildren of the AFSE.
-        """
+        """Get a list of the cildren of the AFSE."""
         ...
 
     @abstractmethod
     def is_file(self) -> bool:
-        """Is the AFSE a file.
-        """
+        """Is the AFSE a file."""
         ...
 
     @abstractmethod
     def name(self) -> str:
-        """The filename or directory name.
-        """
+        """The filename or directory name."""
         ...
 
     def path(self) -> Path:
-        """The path of the AFSE.
-        """
+        """The path of the AFSE."""
         if self.parent is None:
             return Path(self.name())
         return self.parent.path() / self.name()
 
 
 class AbstractedDirectory(AbstractedFileStructureElement):
-    """A object that can be mapped to a directory on the local file system.
-    """
+    """A object that can be mapped to a directory on the local file system."""
 
     def has_children(self) -> bool:
         return True
@@ -104,8 +97,7 @@ class AbstractedDirectory(AbstractedFileStructureElement):
 
 
 class AbstractedFile(AbstractedDirectory, ABC):
-    """An object that can be mapped to a file on the local file system.
-    """
+    """An object that can be mapped to a file on the local file system."""
 
     def has_children(self) -> bool:
         return False
@@ -118,20 +110,17 @@ class AbstractedFile(AbstractedDirectory, ABC):
 
     @abstractmethod
     def download_to(self, to: str):
-        """Download the file to a given path INCLUDING file name.
-        """
+        """Download the file to a given path INCLUDING file name."""
         ...
 
     @abstractmethod
     def download_to_path(self, to: str):
-        """Download the file to a given path WITHOUT file name.
-        """
+        """Download the file to a given path WITHOUT file name."""
         ...
 
 
 class activity(AbstractedFileStructureElement):
-    """Activity management class.
-    """
+    """Activity management class."""
 
     campus: "wuecampus"
     course_: "course"
@@ -407,16 +396,18 @@ class inline_section(section):
             if activity_kind == "resource":
                 i_ = activity_.find_all(class_="instancename")[0].children
                 activity_title = str(next(i_)).strip()
-                activities_.append(
-                    activity_file(
-                        self.campus,
-                        self.course_,
-                        self,
-                        activity_title,
-                        activity_.find_all("a")[0],
-                        activity_kind,
+                link = activity_.find_all("a")
+                if link:
+                    activities_.append(
+                        activity_file(
+                            self.campus,
+                            self.course_,
+                            self,
+                            activity_title,
+                            link[0],
+                            activity_kind,
+                        )
                     )
-                )
             if activity_kind == "assign":
                 i_ = activity_.find_all(class_="instancename")[0].children
                 activity_title = str(next(i_)).strip()
@@ -547,7 +538,10 @@ class course(AbstractedDirectory):
             except IndexError:
                 pass
         for isection in page.find_all("li", class_="section"):
-            section_title = next(isection.children).get_text()
+            secname = isection.find(class_="sectionname")
+            if secname is None:
+                continue
+            section_title = secname.get_text()
             if section_title != "":
                 sections_.append(
                     inline_section(self.campus, self, section_title, isection)
@@ -607,7 +601,7 @@ class wuecampus(AbstractedDirectory):
 
     def all_courses(self) -> List[course]:
         """Get all courses in wuecampus
-        
+
         Returns:
             List[course]
         """
@@ -636,8 +630,7 @@ class wuecampus(AbstractedDirectory):
         return self.all_courses()
 
     def login(self):
-        """Log in a user.
-        """
+        """Log in a user."""
         self.browser.open(url.login_page)
         form = self.browser.select_form()
         form["username"] = self.username
