@@ -2,3 +2,4 @@ PyYAML
 colorama
 tqdm
 mechanicalsoup
+cached-property

@@ -14,9 +14,12 @@ from shutil import move
 from typing import List, Optional
 
 import mechanicalsoup
+from cached_property import cached_property
 from tqdm import tqdm
 
 TMP_DOWNLOAD_DIR = Path.home()
+
+ALIASES = {}
 
 
 def normalized(string: str) -> str:
@@ -81,9 +84,12 @@ class AbstractedFileStructureElement(ABC):
 
     def path(self) -> Path:
         """The path of the AFSE."""
+        candidate = self.name()
+        if candidate in ALIASES:
+            candidate = ALIASES[candidate]
         if self.parent is None:
-            return Path(self.name())
-        return self.parent.path() / self.name()
+            return Path(candidate)
+        return self.parent.path() / candidate
 
 
 class AbstractedDirectory(AbstractedFileStructureElement):
@@ -217,6 +223,7 @@ class activity_file(activity, AbstractedFile):
     def download_to_path(self, to: str):
         self.save_file_to_path(to)
 
+    @cached_property
     def extension(self) -> str:
         """Compute the extension of the file.
 
@@ -224,19 +231,24 @@ class activity_file(activity, AbstractedFile):
             str: The extension
         """
         primitive_extension = (
-            self.link_object.find_all("img")[0].get("src").split("/")[-1]
-            if "img" in str(self.link_object)
-            else self.link_object.get_text().split(".")[-1]
+            # self.link_object.find_all("img")[0].get("src").split("/")[-1]
+            # if "<img" in str(self.link_object)
+            # and self.link_object.find_all("img")[0].class_ != "icon"
+            # else (
+            self.link_object.get_text().split(".", 1)[-1].split("?")[0]
+            if "." in self.link_object.get_text()
+            else ""
+            # )
         )
-        if primitive_extension in ["pdf", "zip"]:
+        if primitive_extension:  # in ["pdf", "zip", "tar.gz", ".pts", ".png"]:
             self.extension_string = primitive_extension
         else:
             if self.campus.verbose:
                 msg = "complex extension: {}".format(primitive_extension)
                 if self.campus.use_tqdm:
-                    tqdm.write(msg)
+                    tqdm.write(msg + "\n")
                 else:
-                    tqdm.write(msg)
+                    print(msg)
         if self.extension_string == "":
             i = self.campus.browser.get(self.link, allow_redirects=False)
             if "location" in i.headers:
@@ -247,12 +259,12 @@ class activity_file(activity, AbstractedFile):
                 self.extension_string = ".".join(
                     i.headers["Content-Disposition"].split('"')[-2].split(".")[1:]
                 )
-        if self.title.endswith("." + self.extension_string):
-            self.title = self.title.rstrip(self.extension_string)[:-1]
+        if self.title.endswith(self.extension_string):
+            self.title = self.title.rstrip(self.extension_string).rstrip(".")
         return self.extension_string
 
     def name(self) -> str:
-        return f"{self.title}.{self.extension()}"
+        return f"{self.title}.{self.extension}"
 
     def __repr__(self):
         return '"File" activity "{}" in {}'.format(self.title, self.section_)
@@ -408,11 +420,24 @@ class inline_section(section):
                             activity_kind,
                         )
                     )
-            if activity_kind == "assign":
+            elif activity_kind == "assign":
                 i_ = activity_.find_all(class_="instancename")[0].children
                 activity_title = str(next(i_)).strip()
                 activities_.append(
                     activity_assignment(
+                        self.campus,
+                        self.course_,
+                        self,
+                        activity_title,
+                        activity_.find_all("a")[0],
+                        activity_kind,
+                    )
+                )
+            elif activity_kind == "folder":
+                i_ = activity_.find_all(class_="instancename")[0].children
+                activity_title = str(next(i_)).strip()
+                activities_.append(
+                    activity_folder(
                         self.campus,
                         self.course_,
                         self,
@@ -492,6 +517,64 @@ class activity_assignment(activity, section):
         return '"Assignment" activity "{}" in {}'.format(self.title, self.section_)
 
 
+class activity_folder(activity, section):
+    """A folder.
+
+    Attributes:
+        link (str): The link to the folder
+        link_object: A bs4 a object
+    """
+
+    def __init__(
+        self,
+        campus: "wuecampus",
+        course_: "course",
+        section_: "section",
+        title: str,
+        link_object,
+        kind: str,
+    ):
+        """Initialize the folder
+
+        Args:
+            campus (wuecampus): The corresponding wuecampus object
+            course_ (course): The course the assignment is in
+            section_ (section): The section the folder is in
+            title (str): The title of the section
+            link_object: The bs4 object of th elink
+            kind (str): The kind of folder
+        """
+        self.campus = campus
+        self.course_ = course_
+        self.section_ = section_
+        self.title = normalized(title)
+        self.link_object = link_object
+        self.kind = kind
+        self.link = link_object.get("href")
+        self.extension_string = ""
+        self.parent = section_
+
+    def all_files(self):
+        self.campus.browser.open(self.link)
+        page = self.campus.browser.get_current_page()
+        files = []
+        for td in page.find_all("span", class_="fp-filename-icon"):
+            td_title = td.find_all("a")[0].get_text()
+            td_link = td.find_all("a")[0]
+            files.append(
+                activity_file(
+                    self.campus, self.course_, self, td_title, td_link, "resource"
+                )
+            )
+        return files
+
+    def get_children(self):
+        return self.all_files()
+
+    def __repr__(self):
+        return '"Folder" activity "{}" in {}'.format(self.title, self.section_)
+
+
 class course(AbstractedDirectory):
     """Course management class.
 
@@ -539,7 +622,7 @@ class course(AbstractedDirectory):
                 pass
         for isection in page.find_all("li", class_="section"):
             secname = isection.find(class_="sectionname")
-            if secname is None:
+            if secname is None or "section-summary" in isection["class"]:
                 continue
             section_title = secname.get_text()
             if section_title != "":
@@ -563,7 +646,8 @@ class course(AbstractedDirectory):
         return self.all_sections()
 
     def name(self) -> str:
-        return normalized(self.title)
+        candidate = normalized(self.title)
+        return candidate
 
     def __repr__(self):
         return 'course "{}"'.format(self.title)
@@ -584,7 +668,9 @@ class wuecampus(AbstractedDirectory):
     password = ""
     browser = mechanicalsoup.StatefulBrowser()
 
-    def __init__(self, username: str, password: str, verbose=False, use_tqdm=False):
+    def __init__(
+        self, username: str, password: str, verbose=False, use_tqdm=False, aliases={}
+    ):
         """Setup with username and password.
 
         Args:
@@ -592,12 +678,16 @@ class wuecampus(AbstractedDirectory):
             password (str): The password
             verbose (bool, optional): Verbose logging
             use_tqdm (bool, optional): Redirect prints through tqdm
+            aliases (Dict[str, str], optional): course name aliases
         """
         self.username = username
         self.password = password
         self.verbose = verbose
         self.use_tqdm = use_tqdm
         self.parent = None
+
+        global ALIASES
+        ALIASES = aliases
 
     def all_courses(self) -> List[course]:
         """Get all courses in wuecampus

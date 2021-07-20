@@ -6,17 +6,14 @@ import argparse
 import os
 import re
 import shutil
-
 from pathlib import Path
 from typing import Any, List
 
+import passwords
+import wuecampy
 import yaml
 from colorama import Fore, Style
 from tqdm import tqdm
-
-import wuecampy
-import passwords
-
 
 STRIP_ANSI_PATTERN = re.compile(r"\x1b\[[;\d]*[A-Za-z]", re.VERBOSE).sub
 
@@ -99,8 +96,7 @@ class Rule:
         self.static_root = rule_to_regex(self.matcher.split("#")[0], "^")
 
     def __repr__(self) -> str:
-        """A string representation
-        """
+        """A string representation"""
         return f'RULE "{self.line}"'
 
     def matches_root(self, path: str) -> bool:
@@ -151,8 +147,7 @@ class Rule:
 
 
 class RuleTree:
-    """A set of rules, representing a mask.txt file.
-    """
+    """A set of rules, representing a mask.txt file."""
 
     rules: List[Rule] = []
 
@@ -234,7 +229,10 @@ class Config:
             config_file (str): The path of the config.yaml
         """
         with open(config_file) as f:
-            config = yaml.load(f, Loader=yaml.FullLoader)
+            try:
+                config = yaml.load(f, Loader=yaml.FullLoader)
+            except:
+                config = yaml.load(f)
 
         cls.config_file = config_file
         cls.old_prefix = config.get("OLD", cls.old_prefix)
@@ -308,8 +306,7 @@ def status(*messages: List[Any]):
 
 
 def keep_current_status():
-    """Keep the message that is the current status.
-    """
+    """Keep the message that is the current status."""
     pretty_print.keep_last = True
 
 
@@ -477,7 +474,7 @@ def ensure_downloaded(file: wuecampy.AbstractedFile):
         file (wuecampy.AbstractedFile): The file to ensure
     """
     touchdir_relative(file.path().parent)
-    log_message = file.name()
+    log_message = file.path()
     download_path = Config.absolute_path(file.path())
     if download_path.exists():
         status(Status.nothing, log_message)
@@ -554,8 +551,7 @@ def sync_directory(directory: wuecampy.AbstractedDirectory) -> bool:
 
 
 def main():
-    """Synchronize the wuecampus filesystem with the local one.
-    """
+    """Synchronize the wuecampus filesystem with the local one."""
     parser = argparse.ArgumentParser()
     parser.add_argument("path", help="path to download to")
     args = parser.parse_args()
@@ -563,13 +559,19 @@ def main():
     mask_path = root_path / "mask.txt"
     with open(mask_path, "r") as mask_file:
         mask = mask_file.read()
+    aliases_path = root_path / "aliases.yaml"
+    aliases = (
+        yaml.safe_load(aliases_path.open("r")) or {} if aliases_path.exists() else {}
+    )
     Config.initiate_from_file(root_path / "config.yaml")
     Config.rules = RuleTree(mask)
     Config.root_path = root_path
     status("Fixing Unicode Encoding Conflicts")
     recursive_fix_unicode(root_path)
     status("Logging in")
-    campus = wuecampy.wuecampus(passwords.sb_at_home.snr, passwords.sb_at_home.password)
+    campus = wuecampy.wuecampus(
+        passwords.sb_at_home.snr, passwords.sb_at_home.password, aliases=aliases
+    )
     campus.login()
     sync_directory(campus)
     status("Fixing Unicode Encoding Conflicts")
