@@ -570,7 +570,10 @@ def main():
     recursive_fix_unicode(root_path)
     status("Logging in")
     campus = wuecampy.wuecampus(
-        passwords.sb_at_home.snr, passwords.sb_at_home.password, aliases=aliases
+        passwords.sb_at_home.snr,
+        passwords.sb_at_home.password,
+        aliases=aliases,
+        # verbose=True,
     )
     campus.login()
     sync_directory(campus)
